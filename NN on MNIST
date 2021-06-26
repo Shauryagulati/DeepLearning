@@ -1,0 +1,2829 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "file_extension": ".py",
+      "mimetype": "text/x-python",
+      "name": "python",
+      "nbconvert_exporter": "python",
+      "pygments_lexer": "ipython3",
+      "version": "3.7.3"
+    },
+    "colab": {
+      "name": "Solution of DL_Worksheet3&4",
+      "provenance": []
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "vOxo0LZgmf04"
+      },
+      "source": [
+        "In this practical, you'll implement an L-layered deep neural network and train it on the MNIST dataset. The MNIST dataset contains scanned images of handwritten digits, along with their correct classification labels (between 0-9). MNIST's name comes from the fact that it is a modified subset of two data sets collected by NIST, the United States' National Institute of Standards and Technology.<br>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "cD6rrRmSmf08"
+      },
+      "source": [
+        "## Data Preparation"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Y8PtiTC1mf09"
+      },
+      "source": [
+        "import numpy as np\n",
+        "import pickle\n",
+        "import gzip\n",
+        "import matplotlib.pyplot as plt\n",
+        "import pandas as pd\n",
+        "import numpy as np\n",
+        "import matplotlib.pyplot as plt\n",
+        "import h5py\n",
+        "import sklearn\n",
+        "import sklearn.datasets\n",
+        "import scipy\n",
+        "from PIL import Image\n",
+        "from scipy import ndimage\n",
+        "\n",
+        "\n",
+        "%matplotlib inline"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "TqvcxYyOmf09"
+      },
+      "source": [
+        "The MNIST dataset we use here is 'mnist.pkl.gz' which is divided into training, validation and test data. The following function <i> load_data() </i> unpacks the file and extracts the training, validation and test data."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "_DFiz2OImf0-"
+      },
+      "source": [
+        "def load_data():\n",
+        "    f = gzip.open('mnist.pkl.gz', 'rb')\n",
+        "    f.seek(0)\n",
+        "    training_data, validation_data, test_data = pickle.load(f, encoding='latin1')\n",
+        "    f.close()\n",
+        "    return (training_data, validation_data, test_data)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "1WQVbhszmf0-"
+      },
+      "source": [
+        "Let's see how the data looks:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "nTmnnQRdmf0-"
+      },
+      "source": [
+        "training_data, validation_data, test_data = load_data()"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "UTBXnOxwmf0-",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "2b35cb28-26e8-4733-f1fb-41567a998ec6"
+      },
+      "source": [
+        "training_data"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(array([[0., 0., 0., ..., 0., 0., 0.],\n",
+              "        [0., 0., 0., ..., 0., 0., 0.],\n",
+              "        [0., 0., 0., ..., 0., 0., 0.],\n",
+              "        ...,\n",
+              "        [0., 0., 0., ..., 0., 0., 0.],\n",
+              "        [0., 0., 0., ..., 0., 0., 0.],\n",
+              "        [0., 0., 0., ..., 0., 0., 0.]], dtype=float32),\n",
+              " array([5, 0, 4, ..., 8, 4, 8]))"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 7
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "jVOpbT59mf0_",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "8bb441b8-fc2f-4ea6-fb70-a2a6bb23da6e"
+      },
+      "source": [
+        "# shape of data\n",
+        "print(training_data[0].shape)\n",
+        "print(training_data[1].shape)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "(50000, 784)\n",
+            "(50000,)\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oLiUBBkRmf0_",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "daef3f72-6920-4ba0-8f2b-f59f57d5255a"
+      },
+      "source": [
+        "print(\"The feature dataset is:\" + str(training_data[0]))\n",
+        "print(\"The target dataset is:\" + str(training_data[1]))\n",
+        "print(\"The number of examples in the training dataset is: \" + str(len(training_data[0])))\n",
+        "print(\"The number of points in a single input is: \" + str(len(training_data[0][1])))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The feature dataset is:[[0. 0. 0. ... 0. 0. 0.]\n",
+            " [0. 0. 0. ... 0. 0. 0.]\n",
+            " [0. 0. 0. ... 0. 0. 0.]\n",
+            " ...\n",
+            " [0. 0. 0. ... 0. 0. 0.]\n",
+            " [0. 0. 0. ... 0. 0. 0.]\n",
+            " [0. 0. 0. ... 0. 0. 0.]]\n",
+            "The target dataset is:[5 0 4 ... 8 4 8]\n",
+            "The number of examples in the training dataset is: 50000\n",
+            "The number of points in a single input is: 784\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "9CJh7zTUmf0_"
+      },
+      "source": [
+        "Now, as discussed earlier in the lectures, the target variable is converted to a one hot matrix. We use the function <i> one_hot </i> to convert the target dataset to one hot encoding."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "B17L6GG2mf0_"
+      },
+      "source": [
+        "def one_hot(j):\n",
+        "    # input is the target dataset of shape (m,) where m is the number of data points\n",
+        "    # returns a 2 dimensional array of shape (10, m) where each target value is converted to a one hot encoding\n",
+        "    # Look at the next block of code for a better understanding of one hot encoding\n",
+        "    n = j.shape[0]\n",
+        "    new_array = np.zeros((10, n))\n",
+        "    index = 0\n",
+        "    for res in j:\n",
+        "        new_array[res][index] = 1.0\n",
+        "        index = index + 1\n",
+        "    return new_array"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "sJv4jqKomf0_",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "c3595c5d-fd7e-4d3d-a2cc-98c14ba00648"
+      },
+      "source": [
+        "data = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])\n",
+        "print(data.shape)\n",
+        "one_hot(data)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "(10,)\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([[1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 0., 0., 1., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 0., 0., 0., 1., 0., 0.],\n",
+              "       [0., 0., 0., 0., 0., 0., 0., 0., 1., 0.],\n",
+              "       [0., 0., 0., 0., 0., 0., 0., 0., 0., 1.]])"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 11
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "xYPRUc1cmf1A"
+      },
+      "source": [
+        "The following function data_wrapper() will convert the dataset into the desired shape and also convert the ground truth labels to one_hot matrix."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "qeMztI6Mmf1A"
+      },
+      "source": [
+        "def data_wrapper():\n",
+        "    tr_d, va_d, te_d = load_data()\n",
+        "    \n",
+        "    training_inputs = np.array(tr_d[0][:]).T\n",
+        "    training_results = np.array(tr_d[1][:])\n",
+        "    train_set_y = one_hot(training_results)\n",
+        "    \n",
+        "    validation_inputs = np.array(va_d[0][:]).T\n",
+        "    validation_results = np.array(va_d[1][:])\n",
+        "    validation_set_y = one_hot(validation_results)\n",
+        "    \n",
+        "    test_inputs = np.array(te_d[0][:]).T\n",
+        "    test_results = np.array(te_d[1][:])\n",
+        "    test_set_y = one_hot(test_results)\n",
+        "    \n",
+        "    return (training_inputs, train_set_y, test_inputs, test_set_y)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "w1i57a5Pmf1A"
+      },
+      "source": [
+        "train_set_x, train_set_y, test_set_x, test_set_y = data_wrapper()"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "R0AMuIjxmf1A",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "90cda586-04e5-4437-e221-fcec6c93de9e"
+      },
+      "source": [
+        "print (\"train_set_x shape: \" + str(train_set_x.shape))\n",
+        "print (\"train_set_y shape: \" + str(train_set_y.shape))\n",
+        "print (\"test_set_x shape: \" + str(test_set_x.shape))\n",
+        "print (\"test_set_y shape: \" + str(test_set_y.shape))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "train_set_x shape: (784, 50000)\n",
+            "train_set_y shape: (10, 50000)\n",
+            "test_set_x shape: (784, 10000)\n",
+            "test_set_y shape: (10, 10000)\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "UjKmlBpNmf1A"
+      },
+      "source": [
+        "We can see that the data_wrapper has converted the training and validation data into numpy array of desired shapes. Let's convert the actual labels into a dataframe to see if the one hot conversions are correct."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "IrzyWrcdmf1B"
+      },
+      "source": [
+        "y = pd.DataFrame(train_set_y)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "HsRUZlqpmf1B",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 442
+        },
+        "outputId": "d735e4c6-ac4b-401a-db88-bc3bbd804e9d"
+      },
+      "source": [
+        "print(\"The target dataset is:\" + str(training_data[1]))\n",
+        "print(\"The one hot encoding dataset is:\")\n",
+        "y"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "The target dataset is:[5 0 4 ... 8 4 8]\n",
+            "The one hot encoding dataset is:\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/html": [
+              "<div>\n",
+              "<style scoped>\n",
+              "    .dataframe tbody tr th:only-of-type {\n",
+              "        vertical-align: middle;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe tbody tr th {\n",
+              "        vertical-align: top;\n",
+              "    }\n",
+              "\n",
+              "    .dataframe thead th {\n",
+              "        text-align: right;\n",
+              "    }\n",
+              "</style>\n",
+              "<table border=\"1\" class=\"dataframe\">\n",
+              "  <thead>\n",
+              "    <tr style=\"text-align: right;\">\n",
+              "      <th></th>\n",
+              "      <th>0</th>\n",
+              "      <th>1</th>\n",
+              "      <th>2</th>\n",
+              "      <th>3</th>\n",
+              "      <th>4</th>\n",
+              "      <th>5</th>\n",
+              "      <th>6</th>\n",
+              "      <th>7</th>\n",
+              "      <th>8</th>\n",
+              "      <th>9</th>\n",
+              "      <th>10</th>\n",
+              "      <th>11</th>\n",
+              "      <th>12</th>\n",
+              "      <th>13</th>\n",
+              "      <th>14</th>\n",
+              "      <th>15</th>\n",
+              "      <th>16</th>\n",
+              "      <th>17</th>\n",
+              "      <th>18</th>\n",
+              "      <th>19</th>\n",
+              "      <th>20</th>\n",
+              "      <th>21</th>\n",
+              "      <th>22</th>\n",
+              "      <th>23</th>\n",
+              "      <th>24</th>\n",
+              "      <th>25</th>\n",
+              "      <th>26</th>\n",
+              "      <th>27</th>\n",
+              "      <th>28</th>\n",
+              "      <th>29</th>\n",
+              "      <th>30</th>\n",
+              "      <th>31</th>\n",
+              "      <th>32</th>\n",
+              "      <th>33</th>\n",
+              "      <th>34</th>\n",
+              "      <th>35</th>\n",
+              "      <th>36</th>\n",
+              "      <th>37</th>\n",
+              "      <th>38</th>\n",
+              "      <th>39</th>\n",
+              "      <th>...</th>\n",
+              "      <th>49960</th>\n",
+              "      <th>49961</th>\n",
+              "      <th>49962</th>\n",
+              "      <th>49963</th>\n",
+              "      <th>49964</th>\n",
+              "      <th>49965</th>\n",
+              "      <th>49966</th>\n",
+              "      <th>49967</th>\n",
+              "      <th>49968</th>\n",
+              "      <th>49969</th>\n",
+              "      <th>49970</th>\n",
+              "      <th>49971</th>\n",
+              "      <th>49972</th>\n",
+              "      <th>49973</th>\n",
+              "      <th>49974</th>\n",
+              "      <th>49975</th>\n",
+              "      <th>49976</th>\n",
+              "      <th>49977</th>\n",
+              "      <th>49978</th>\n",
+              "      <th>49979</th>\n",
+              "      <th>49980</th>\n",
+              "      <th>49981</th>\n",
+              "      <th>49982</th>\n",
+              "      <th>49983</th>\n",
+              "      <th>49984</th>\n",
+              "      <th>49985</th>\n",
+              "      <th>49986</th>\n",
+              "      <th>49987</th>\n",
+              "      <th>49988</th>\n",
+              "      <th>49989</th>\n",
+              "      <th>49990</th>\n",
+              "      <th>49991</th>\n",
+              "      <th>49992</th>\n",
+              "      <th>49993</th>\n",
+              "      <th>49994</th>\n",
+              "      <th>49995</th>\n",
+              "      <th>49996</th>\n",
+              "      <th>49997</th>\n",
+              "      <th>49998</th>\n",
+              "      <th>49999</th>\n",
+              "    </tr>\n",
+              "  </thead>\n",
+              "  <tbody>\n",
+              "    <tr>\n",
+              "      <th>0</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>1</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>2</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>3</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>4</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>5</th>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>6</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>7</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>8</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "    </tr>\n",
+              "    <tr>\n",
+              "      <th>9</th>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>...</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>1.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "      <td>0.0</td>\n",
+              "    </tr>\n",
+              "  </tbody>\n",
+              "</table>\n",
+              "<p>10 rows × 50000 columns</p>\n",
+              "</div>"
+            ],
+            "text/plain": [
+              "   0      1      2      3      4      ...  49995  49996  49997  49998  49999\n",
+              "0    0.0    1.0    0.0    0.0    0.0  ...    0.0    1.0    0.0    0.0    0.0\n",
+              "1    0.0    0.0    0.0    1.0    0.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "2    0.0    0.0    0.0    0.0    0.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "3    0.0    0.0    0.0    0.0    0.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "4    0.0    0.0    1.0    0.0    0.0  ...    0.0    0.0    0.0    1.0    0.0\n",
+              "5    1.0    0.0    0.0    0.0    0.0  ...    1.0    0.0    0.0    0.0    0.0\n",
+              "6    0.0    0.0    0.0    0.0    0.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "7    0.0    0.0    0.0    0.0    0.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "8    0.0    0.0    0.0    0.0    0.0  ...    0.0    0.0    1.0    0.0    1.0\n",
+              "9    0.0    0.0    0.0    0.0    1.0  ...    0.0    0.0    0.0    0.0    0.0\n",
+              "\n",
+              "[10 rows x 50000 columns]"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 16
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "9NQqR9Jmmf1B"
+      },
+      "source": [
+        "Now let us visualise the dataset. Feel free to change the index to see if the training data has been correctly tagged."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "u2G896UXmf1B",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 298
+        },
+        "outputId": "a4eb9699-6684-4c50-d6d8-9da7551a308b"
+      },
+      "source": [
+        "index  = 1000\n",
+        "k = train_set_x[:,index]\n",
+        "k = k.reshape((28, 28))\n",
+        "plt.title('Label is {label}'.format(label= training_data[1][index]))\n",
+        "plt.imshow(k, cmap='gray')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.image.AxesImage at 0x7fbdb3b35790>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 17
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "lW-VgOJ3mf1B"
+      },
+      "source": [
+        "# Feedforward"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "W2V41vxomf1B"
+      },
+      "source": [
+        "### sigmoid\n",
+        "This is one of the activation functions. It takes the cumulative input to the layer, the matrix **Z**, as the input. Upon application of the **`sigmoid`** function, the output matrix **H** is calculated. Also, **Z** is stored as the variable **sigmoid_memory** since it will be later used in backpropagation.You use _[np.exp()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.exp.html)_ here in the following way. The exponential gets applied to all the elements of Z."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "-UIR2ZD2mf1C"
+      },
+      "source": [
+        "def sigmoid(Z):\n",
+        "    \n",
+        "    # Z is numpy array of shape (n, m) where n is number of neurons in the layer and m is the number of samples \n",
+        "    # sigmoid_memory is stored as it is used later on in backpropagation\n",
+        "    \n",
+        "    H = 1/(1+np.exp(-Z))\n",
+        "    sigmoid_memory = Z\n",
+        "    \n",
+        "    return H, sigmoid_memory"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "eYIFPN1xmf1C",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "1407c932-80fc-47e7-f131-25293527685d"
+      },
+      "source": [
+        "Z = np.arange(8).reshape(4,2)\n",
+        "print (\"sigmoid(Z) = \" + str(sigmoid(Z)))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "sigmoid(Z) = (array([[0.5       , 0.73105858],\n",
+            "       [0.88079708, 0.95257413],\n",
+            "       [0.98201379, 0.99330715],\n",
+            "       [0.99752738, 0.99908895]]), array([[0, 1],\n",
+            "       [2, 3],\n",
+            "       [4, 5],\n",
+            "       [6, 7]]))\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "LZIFr67smf1C"
+      },
+      "source": [
+        "### relu\n",
+        "This is one of the activation functions. It takes the cumulative input to the layer, matrix **Z** as the input. Upon application of the **`relu`** function, matrix **H** which is the output matrix is calculated. Also, **Z** is stored as **relu_memory** which will be later used in backpropagation. You use _[np.maximum()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.maximum.html)_ here in the following way."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "58aPdiGgmf1C"
+      },
+      "source": [
+        "def relu(Z):\n",
+        "    # Z is numpy array of shape (n, m) where n is number of neurons in the layer and m is the number of samples \n",
+        "    # relu_memory is stored as it is used later on in backpropagation\n",
+        "    \n",
+        "    H = np.maximum(0,Z)\n",
+        "    \n",
+        "    assert(H.shape == Z.shape)\n",
+        "    \n",
+        "    relu_memory = Z \n",
+        "    return H, relu_memory"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "_NN2hnBcmf1C",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "766bf40d-ea0b-4e1f-ebb0-14b318544216"
+      },
+      "source": [
+        "Z = np.array([1, 3, -1, -4, -5, 7, 9, 18]).reshape(4,2)\n",
+        "print (\"relu(Z) = \" + str(relu(Z)))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "relu(Z) = (array([[ 1,  3],\n",
+            "       [ 0,  0],\n",
+            "       [ 0,  7],\n",
+            "       [ 9, 18]]), array([[ 1,  3],\n",
+            "       [-1, -4],\n",
+            "       [-5,  7],\n",
+            "       [ 9, 18]]))\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "U1BAUjhomf1E"
+      },
+      "source": [
+        "### softmax\n",
+        "This is the activation of the last layer. It takes the cumulative input to the layer, matrix **Z** as the input. Upon application of the **`softmax`** function, the output matrix **H** is calculated. Also, **Z** is stored as **softmax_memory** which will be later used in backpropagation. You use _[np.exp()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.exp.html)_ and _[np.sum()](https://docs.scipy.org/doc/numpy-1.10.0/reference/generated/numpy.sum.html)_ here in the following way. The exponential gets applied to all the elements of Z."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "oehZj-ylmf1E"
+      },
+      "source": [
+        "def softmax(Z):\n",
+        "    # Z is numpy array of shape (n, m) where n is number of neurons in the layer and m is the number of samples \n",
+        "    # softmax_memory is stored as it is used later on in backpropagation\n",
+        "   \n",
+        "    Z_exp = np.exp(Z)\n",
+        "\n",
+        "    Z_sum = np.sum(Z_exp,axis = 0, keepdims = True)\n",
+        "    \n",
+        "    H = Z_exp/Z_sum  #normalising step\n",
+        "    softmax_memory = Z\n",
+        "    \n",
+        "    return H, softmax_memory"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "bOY2sct4mf1E"
+      },
+      "source": [
+        "Z = np.array([[11,19,10], [12, 21, 23]])"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "uy80hIa4mf1F",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "8c82e156-c41b-4f0e-cdef-bac5984133a0"
+      },
+      "source": [
+        "#Z = np.array(np.arange(30)).reshape(10,3)\n",
+        "H, softmax_memory = softmax(Z)\n",
+        "print(H)\n",
+        "print(softmax_memory)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[[2.68941421e-01 1.19202922e-01 2.26032430e-06]\n",
+            " [7.31058579e-01 8.80797078e-01 9.99997740e-01]]\n",
+            "[[11 19 10]\n",
+            " [12 21 23]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "8cuddychmf1F"
+      },
+      "source": [
+        "### initialize_parameters\n",
+        "Let's now create a function **`initialize_parameters`** which initializes the weights and biases of the various layers. One way to initialise is to set all the parameters to 0. This is not a considered a good strategy as all the neurons will behave the same way and it'll defeat the purpose of deep networks. Hence, we initialize the weights randomly to very small values but not zeros. The biases are initialized to 0. Note that the **`initialize_parameters`** function initializes the parameters for all the layers in one `for` loop. \n",
+        "\n",
+        "The inputs to this function is a list named `dimensions`. The length of the list is the number layers in the network + 1 (the plus one is for the input layer, rest are hidden + output). The first element of this list is the dimensionality or length of the input (784 for the MNIST dataset). The rest of the list contains the number of neurons in the corresponding (hidden and output) layers.\n",
+        "\n",
+        "For example `dimensions = [784, 3, 7, 10]` specifies a network for the MNIST dataset with two hidden layers and a 10-dimensional softmax output.\n",
+        "\n",
+        "Also, notice that the parameters are returned in a dictionary. This will help you in implementing the feedforward through the layer and the backprop throught the layer at once."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "u_WMiUx0mf1F"
+      },
+      "source": [
+        "def initialize_parameters(dimensions):\n",
+        "\n",
+        "    # dimensions is a list containing the number of neuron in each layer in the network\n",
+        "    # It returns parameters which is a python dictionary containing the parameters \"W1\", \"b1\", ..., \"WL\", \"bL\":\n",
+        "\n",
+        "    np.random.seed(2)\n",
+        "    parameters = {}\n",
+        "    L = len(dimensions)            # number of layers in the network + 1\n",
+        "\n",
+        "    for l in range(1, L): \n",
+        "        parameters['W' + str(l)] = np.random.randn(dimensions[l], dimensions[l-1]) * 0.1\n",
+        "        parameters['b' + str(l)] = np.zeros((dimensions[l], 1)) \n",
+        "        \n",
+        "        assert(parameters['W' + str(l)].shape == (dimensions[l], dimensions[l-1]))\n",
+        "        assert(parameters['b' + str(l)].shape == (dimensions[l], 1))\n",
+        "\n",
+        "        \n",
+        "    return parameters"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "scrolled": true,
+        "id": "2WJyl0p4mf1F",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "0a28184d-6a8c-49a6-bcb7-a4bbd399b918"
+      },
+      "source": [
+        "dimensions  = [784, 3,7,10]\n",
+        "parameters = initialize_parameters(dimensions)\n",
+        "print(\"W1 = \" + str(parameters[\"W1\"]))\n",
+        "print(\"b1 = \" + str(parameters[\"b1\"]))\n",
+        "print(\"W2 = \" + str(parameters[\"W2\"]))\n",
+        "print(\"b2 = \" + str(parameters[\"b2\"]))\n",
+        "# print(\"W3 = \" + str(parameters[\"W3\"]))\n",
+        "# print(\"b3 = \" + str(parameters[\"b3\"]))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "W1 = [[-0.04167578 -0.00562668 -0.21361961 ... -0.06168445  0.03213358\n",
+            "  -0.09464469]\n",
+            " [-0.05301394 -0.1259207   0.16775441 ... -0.03284246 -0.05623108\n",
+            "   0.01179136]\n",
+            " [ 0.07386378 -0.15872956  0.01532001 ... -0.08428557  0.10040469\n",
+            "   0.00545832]]\n",
+            "b1 = [[0.]\n",
+            " [0.]\n",
+            " [0.]]\n",
+            "W2 = [[ 0.06650944 -0.19626047  0.2112715 ]\n",
+            " [-0.28074571 -0.13967752  0.02641189]\n",
+            " [ 0.10925169  0.06646016  0.08565535]\n",
+            " [-0.11058228  0.03715795  0.13440124]\n",
+            " [-0.16421272 -0.1153127   0.02013163]\n",
+            " [ 0.13985659  0.07228733 -0.10717236]\n",
+            " [-0.05673344 -0.03663499 -0.15460347]]\n",
+            "b2 = [[0.]\n",
+            " [0.]\n",
+            " [0.]\n",
+            " [0.]\n",
+            " [0.]\n",
+            " [0.]\n",
+            " [0.]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "1ZnzWwZYmf1G"
+      },
+      "source": [
+        "### layer_forward\n",
+        "\n",
+        "The function **`layer_forward`** implements the forward propagation for a certain layer 'l'. It calculates the cumulative input into the layer **Z** and uses it to calculate the output of the layer **H**. It takes **H_prev, W, b and the activation function** as inputs and stores the **linear_memory, activation_memory** in the variable **memory** which will be used later in backpropagation. \n",
+        "\n",
+        "<br> You have to first calculate the **Z**(using the forward propagation equation), **linear_memory**(H_prev, W, b) and then calculate **H, activation_memory**(Z) by applying activation functions - **`sigmoid`**, **`relu`** and **`softmax`** on **Z**.\n",
+        "\n",
+        "<br> Note that $$H^{L-1}$$ is referred here as H_prev. You might want to use _[np.dot()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html)_ to carry out the matrix multiplication."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Y5ebJF-xmf1G"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def layer_forward(H_prev, W, b, activation = 'relu'):\n",
+        "\n",
+        "    # H_prev is of shape (size of previous layer, number of examples)\n",
+        "    # W is weights matrix of shape (size of current layer, size of previous layer)\n",
+        "    # b is bias vector of shape (size of the current layer, 1)\n",
+        "    # activation is the activation to be used for forward propagation : \"softmax\", \"relu\", \"sigmoid\"\n",
+        "\n",
+        "    # H is the output of the activation function \n",
+        "    # memory is a python dictionary containing \"linear_memory\" and \"activation_memory\"\n",
+        "    \n",
+        "    if activation == \"sigmoid\":\n",
+        "        Z = np.dot(W, H_prev) + b\n",
+        "        linear_memory = (H_prev, W, b)\n",
+        "        H, activation_memory = sigmoid(Z)\n",
+        " \n",
+        "    elif activation == \"softmax\":\n",
+        "        Z = np.dot(W, H_prev) + b\n",
+        "        linear_memory = (H_prev, W, b)\n",
+        "        H, activation_memory = softmax(Z)\n",
+        "    \n",
+        "    elif activation == \"relu\":\n",
+        "        Z = np.dot(W, H_prev) + b\n",
+        "        linear_memory = (H_prev, W, b)\n",
+        "        H, activation_memory = relu(Z)\n",
+        "        \n",
+        "    assert (H.shape == (W.shape[0], H_prev.shape[1]))\n",
+        "    memory = (linear_memory, activation_memory)\n",
+        "\n",
+        "    return H, memory"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "7WSfk7U0mf1G",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "cb66524d-b934-403c-f050-629055eec324"
+      },
+      "source": [
+        "# verify\n",
+        "# l-1 has two neurons, l has three, m = 5\n",
+        "# H_prev is (l-1, m)\n",
+        "# W is (l, l-1)\n",
+        "# b is (l, 1)\n",
+        "# H should be (l, m)\n",
+        "H_prev = np.array([[1,0, 5, 10, 2], [2, 5, 3, 10, 2]])\n",
+        "W_sample = np.array([[10, 5], [2, 0], [1, 0]])\n",
+        "b_sample = np.array([10, 5, 0]).reshape((3, 1))\n",
+        "\n",
+        "H = layer_forward(H_prev, W_sample, b_sample, activation=\"sigmoid\")[0]\n",
+        "H"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([[1.        , 1.        , 1.        , 1.        , 1.        ],\n",
+              "       [0.99908895, 0.99330715, 0.99999969, 1.        , 0.99987661],\n",
+              "       [0.73105858, 0.5       , 0.99330715, 0.9999546 , 0.88079708]])"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 28
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "nwk8Sz3Mmf1G"
+      },
+      "source": [
+        "You should get:<br>\n",
+        "    array([[1.        , 1.        , 1.        , 1.        , 1.        ],<br>\n",
+        "      [0.99908895, 0.99330715, 0.99999969, 1.        , 0.99987661],<br>\n",
+        "       [0.73105858, 0.5       , 0.99330715, 0.9999546 , 0.88079708]])\n",
+        "    "
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "dUe3S0owmf1H"
+      },
+      "source": [
+        "### L_layer_forward\n",
+        "**`L_layer_forward`** performs one forward pass through the whole network for all the training samples (note that we are feeding all training examples in one single batch). Use the **`layer_forward`** you have created above here to perform the feedforward for layers 1 to 'L-1' in the for loop with the activation **`relu`**. The last layer having a different activation **`softmax`** is calculated outside the loop. Notice that the **memory** is appended to **memories** for all the layers. These will be used in the backward order during backpropagation."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "_ULIkLtvmf1H"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def L_layer_forward(X, parameters):\n",
+        "\n",
+        "    # X is input data of shape (input size, number of examples)\n",
+        "    # parameters is output of initialize_parameters()\n",
+        "    \n",
+        "    # HL is the last layer's post-activation value\n",
+        "    # memories is the list of memory containing (for a relu activation, for example):\n",
+        "    # - every memory of relu forward (there are L-1 of them, indexed from 1 to L-1), \n",
+        "    # - the memory of softmax forward (there is one, indexed L) \n",
+        "\n",
+        "    memories = []\n",
+        "    H = X\n",
+        "    L = len(parameters) // 2                  # number of layers in the neural network\n",
+        "    \n",
+        "    # Implement relu layer (L-1) times as the Lth layer is the softmax layer\n",
+        "    for l in range(1, L):\n",
+        "        H_prev = H\n",
+        "        \n",
+        "        H, memory = layer_forward(H_prev, parameters[\"W\" + str(l)], parameters[\"b\" + str(l)], activation='relu')\n",
+        "        \n",
+        "        memories.append(memory)\n",
+        "    \n",
+        "    # Implement the final softmax layer\n",
+        "    # HL here is the final prediction P as specified in the lectures\n",
+        "    HL, memory = layer_forward(H, parameters[\"W\" + str(L)], parameters[\"b\" + str(L)], activation='softmax')\n",
+        "    \n",
+        "    memories.append(memory)\n",
+        "\n",
+        "    assert(HL.shape == (10, X.shape[1]))\n",
+        "            \n",
+        "    return HL, memories"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "WVi8th4Gmf1H",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "25034cb3-5696-47d6-fd30-3223f446de83"
+      },
+      "source": [
+        "# verify\n",
+        "# X is (784, 10)\n",
+        "# parameters is a dict\n",
+        "# HL should be (10, 10)\n",
+        "x_sample = train_set_x[:, 10:20]\n",
+        "print(x_sample.shape)\n",
+        "HL = L_layer_forward(x_sample, parameters=parameters)[0]\n",
+        "print(HL[:, :5])"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "(784, 10)\n",
+            "[[0.10106734 0.10045152 0.09927757 0.10216656 0.1       ]\n",
+            " [0.10567625 0.10230873 0.10170271 0.11250099 0.1       ]\n",
+            " [0.09824287 0.0992886  0.09967128 0.09609693 0.1       ]\n",
+            " [0.10028288 0.10013048 0.09998149 0.10046076 0.1       ]\n",
+            " [0.09883601 0.09953443 0.09931419 0.097355   0.1       ]\n",
+            " [0.10668575 0.10270912 0.10180736 0.11483609 0.1       ]\n",
+            " [0.09832513 0.09932275 0.09954792 0.09627089 0.1       ]\n",
+            " [0.09747092 0.09896735 0.0995387  0.09447277 0.1       ]\n",
+            " [0.09489069 0.09788255 0.09929998 0.08915178 0.1       ]\n",
+            " [0.09852217 0.09940447 0.09985881 0.09668824 0.1       ]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Kl0udNpwmf1H"
+      },
+      "source": [
+        "You should get:\n",
+        "\n",
+        "(784, 10)<br>\n",
+        "[[0.10106734 0.10045152 0.09927757 0.10216656 0.1       ]<br>\n",
+        " [0.10567625 0.10230873 0.10170271 0.11250099 0.1       ]<br>\n",
+        " [0.09824287 0.0992886  0.09967128 0.09609693 0.1       ]<br>\n",
+        " [0.10028288 0.10013048 0.09998149 0.10046076 0.1       ]<br>\n",
+        " [0.09883601 0.09953443 0.09931419 0.097355   0.1       ]<br>\n",
+        " [0.10668575 0.10270912 0.10180736 0.11483609 0.1       ]<br>\n",
+        " [0.09832513 0.09932275 0.09954792 0.09627089 0.1       ]<br>\n",
+        " [0.09747092 0.09896735 0.0995387  0.09447277 0.1       ]<br>\n",
+        " [0.09489069 0.09788255 0.09929998 0.08915178 0.1       ]<br>\n",
+        " [0.09852217 0.09940447 0.09985881 0.09668824 0.1       ]]"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Ep6zFPAUmf1H"
+      },
+      "source": [
+        "# Loss\n",
+        "\n",
+        "### compute_loss\n",
+        "The next step is to compute the loss function after every forward pass to keep checking whether it is decreasing with training.<br> **`compute_loss`** here calculates the cross-entropy loss. You may want to use _[np.log()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.log.html)_, _[np.sum()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.log.html)_, _[np.multiply()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.multiply.html)_ here. Do not forget that it is the average loss across all the data points in the batch. It takes the output of the last layer **HL** and the ground truth label **Y** as input and returns the **loss**."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "U_DEjznMmf1H"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def compute_loss(HL, Y):\n",
+        "\n",
+        "\n",
+        "    # HL is probability matrix of shape (10, number of examples)\n",
+        "    # Y is true \"label\" vector shape (10, number of examples)\n",
+        "\n",
+        "    # loss is the cross-entropy loss\n",
+        "\n",
+        "    m = Y.shape[1]\n",
+        "\n",
+        "    loss = (-1./ m) * np.sum(np.multiply(Y, np.log(HL)))\n",
+        "    \n",
+        "    loss = np.squeeze(loss)      # To make sure that the loss's shape is what we expect (e.g. this turns [[17]] into 17).\n",
+        "    assert(loss.shape == ())\n",
+        "    \n",
+        "    return loss"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "2xdudetxmf1H",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "197ddd5e-82ae-4e9a-d43f-3f1a74b33d79"
+      },
+      "source": [
+        "# sample\n",
+        "# HL is (10, 5), Y is (10, 5)\n",
+        "np.random.seed(2)\n",
+        "HL_sample = np.random.rand(10,5)\n",
+        "Y_sample = train_set_y[:, 10:15]\n",
+        "print(HL_sample)\n",
+        "print(Y_sample)\n",
+        "\n",
+        "print(compute_loss(HL_sample, Y_sample))"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[[0.4359949  0.02592623 0.54966248 0.43532239 0.4203678 ]\n",
+            " [0.33033482 0.20464863 0.61927097 0.29965467 0.26682728]\n",
+            " [0.62113383 0.52914209 0.13457995 0.51357812 0.18443987]\n",
+            " [0.78533515 0.85397529 0.49423684 0.84656149 0.07964548]\n",
+            " [0.50524609 0.0652865  0.42812233 0.09653092 0.12715997]\n",
+            " [0.59674531 0.226012   0.10694568 0.22030621 0.34982629]\n",
+            " [0.46778748 0.20174323 0.64040673 0.48306984 0.50523672]\n",
+            " [0.38689265 0.79363745 0.58000418 0.1622986  0.70075235]\n",
+            " [0.96455108 0.50000836 0.88952006 0.34161365 0.56714413]\n",
+            " [0.42754596 0.43674726 0.77655918 0.53560417 0.95374223]]\n",
+            "[[0. 0. 0. 0. 0.]\n",
+            " [0. 0. 0. 0. 1.]\n",
+            " [0. 0. 0. 0. 0.]\n",
+            " [1. 0. 1. 0. 0.]\n",
+            " [0. 0. 0. 0. 0.]\n",
+            " [0. 1. 0. 0. 0.]\n",
+            " [0. 0. 0. 1. 0.]\n",
+            " [0. 0. 0. 0. 0.]\n",
+            " [0. 0. 0. 0. 0.]\n",
+            " [0. 0. 0. 0. 0.]]\n",
+            "0.8964600261334037\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ms2tlAizmf1H"
+      },
+      "source": [
+        "You should get:<br>\n",
+        "    \n",
+        "[[0.4359949  0.02592623 0.54966248 0.43532239 0.4203678 ]<br>\n",
+        " [0.33033482 0.20464863 0.61927097 0.29965467 0.26682728]<br>\n",
+        " [0.62113383 0.52914209 0.13457995 0.51357812 0.18443987]<br>\n",
+        " [0.78533515 0.85397529 0.49423684 0.84656149 0.07964548]<br>\n",
+        " [0.50524609 0.0652865  0.42812233 0.09653092 0.12715997]<br>\n",
+        " [0.59674531 0.226012   0.10694568 0.22030621 0.34982629]<br>\n",
+        " [0.46778748 0.20174323 0.64040673 0.48306984 0.50523672]<br>\n",
+        " [0.38689265 0.79363745 0.58000418 0.1622986  0.70075235]<br>\n",
+        " [0.96455108 0.50000836 0.88952006 0.34161365 0.56714413]<br>\n",
+        " [0.42754596 0.43674726 0.77655918 0.53560417 0.95374223]]<br>\n",
+        "[[0. 0. 0. 0. 0.]<br>\n",
+        " [0. 0. 0. 0. 1.]<br>\n",
+        " [0. 0. 0. 0. 0.]<br>\n",
+        " [1. 0. 1. 0. 0.]<br>\n",
+        " [0. 0. 0. 0. 0.]<br>\n",
+        " [0. 1. 0. 0. 0.]<br>\n",
+        " [0. 0. 0. 1. 0.]<br>\n",
+        " [0. 0. 0. 0. 0.]<br>\n",
+        " [0. 0. 0. 0. 0.]<br>\n",
+        " [0. 0. 0. 0. 0.]]<br>\n",
+        "0.8964600261334037"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "-TaGUMEEmf1I"
+      },
+      "source": [
+        "# Backpropagation\n",
+        "Let's now get to the next step - backpropagation. Let's start with sigmoid_backward.\n",
+        "\n",
+        "### sigmoid-backward\n",
+        "You might remember that we had created **`sigmoid`** function that calculated the activation for forward propagation. Now, we need the activation backward, which helps in calculating **dZ** from **dH**. Notice that it takes input **dH** and **sigmoid_memory** as input. **sigmoid_memory** is the **Z** which we had calculated during forward propagation. You use _[np.exp()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.exp.html)_ here the following way."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "U4yPpHEBmf1I"
+      },
+      "source": [
+        "def sigmoid_backward(dH, sigmoid_memory):\n",
+        "    \n",
+        "    # Implement the backpropagation of a sigmoid function\n",
+        "    # dH is gradient of the sigmoid activated activation of shape same as H or Z in the same layer    \n",
+        "    # sigmoid_memory is the memory stored in the sigmoid(Z) calculation\n",
+        "    \n",
+        "    Z = sigmoid_memory\n",
+        "    \n",
+        "    H = 1/(1+np.exp(-Z))\n",
+        "    dZ = dH * H * (1-H)\n",
+        "    \n",
+        "    assert (dZ.shape == Z.shape)\n",
+        "    \n",
+        "    return dZ"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "VC7YNEDjmf1I"
+      },
+      "source": [
+        "### relu-backward\n",
+        "You might remember that we had created **`relu`** function that calculated the activation for forward propagation. Now, we need the activation backward, which helps in calculating **dZ** from **dH**. Notice that it takes input **dH** and **relu_memory** as input. **relu_memory** is the **Z** which we calculated uring forward propagation. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "MTo2aJ73mf1I"
+      },
+      "source": [
+        "def relu_backward(dH, relu_memory):\n",
+        "    \n",
+        "    # Implement the backpropagation of a relu function\n",
+        "    # dH is gradient of the relu activated activation of shape same as H or Z in the same layer    \n",
+        "    # relu_memory is the memory stored in the sigmoid(Z) calculation\n",
+        "    \n",
+        "    Z = relu_memory\n",
+        "    dZ = np.array(dH, copy=True) # dZ will be the same as dA wherever the elements of A weren't 0\n",
+        "    \n",
+        "    dZ[Z <= 0] = 0\n",
+        "    \n",
+        "    assert (dZ.shape == Z.shape)\n",
+        "    \n",
+        "    return dZ"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "egSIxXEMmf1I"
+      },
+      "source": [
+        "### layer_backward\n",
+        "\n",
+        "**`layer_backward`** is a complimentary function of **`layer_forward`**. Like **`layer_forward`** calculates **H** using **W**, **H_prev** and **b**, **`layer_backward`** uses **dH** to calculate **dW**, **dH_prev** and **db**. You have already studied the formulae in backpropogation. To calculate **dZ**, use the **`sigmoid_backward`** and **`relu_backward`** function. You might need to use _[np.dot()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.dot.html)_, _[np.sum()](https://docs.scipy.org/doc/numpy/reference/generated/numpy.sum.html)_ for the rest. Remember to choose the axis correctly in db. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "lV36LIkFmf1I"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def layer_backward(dH, memory, activation = 'relu'):\n",
+        "    \n",
+        "    # takes dH and the memory calculated in layer_forward and activation as input to calculate the dH_prev, dW, db\n",
+        "    # performs the backprop depending upon the activation function\n",
+        "    \n",
+        "\n",
+        "    linear_memory, activation_memory = memory\n",
+        "    \n",
+        "    if activation == \"relu\":\n",
+        "        dZ = relu_backward(dH, activation_memory)\n",
+        "        H_prev, W, b = linear_memory\n",
+        "        m = H_prev.shape[1]\n",
+        "        dW = (1. / m) * np.dot(dZ, H_prev.T)\n",
+        "        db = (1. / m) * np.sum(dZ, axis=1, keepdims=True)\n",
+        "        dH_prev = np.dot(linear_memory[1].T, dZ)\n",
+        "        \n",
+        "    elif activation == \"sigmoid\":\n",
+        "        dZ = sigmoid_backward(dH, activation_memory)\n",
+        "        H_prev, W, b = linear_memory\n",
+        "        m = H_prev.shape[1]\n",
+        "        dW = (1. / m) * np.dot(dZ, H_prev.T)\n",
+        "        db = (1. / m) * np.sum(dZ, axis=1, keepdims=True)\n",
+        "        dH_prev = np.dot(linear_memory[1].T, dZ)\n",
+        "        \n",
+        "    return dH_prev, dW, db"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "tV7hvHYimf1I",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "594128a4-8a2e-4cf2-d5d1-f051c414a93e"
+      },
+      "source": [
+        "# verify\n",
+        "# l-1 has two neurons, l has three, m = 5\n",
+        "# H_prev is (l-1, m)\n",
+        "# W is (l, l-1)\n",
+        "# b is (l, 1)\n",
+        "# H should be (l, m)\n",
+        "H_prev = np.array([[1,0, 5, 10, 2], [2, 5, 3, 10, 2]])\n",
+        "W_sample = np.array([[10, 5], [2, 0], [1, 0]])\n",
+        "b_sample = np.array([10, 5, 0]).reshape((3, 1))\n",
+        "\n",
+        "H, memory = layer_forward(H_prev, W_sample, b_sample, activation=\"relu\")\n",
+        "np.random.seed(2)\n",
+        "dH = np.random.rand(3,5)\n",
+        "dH_prev, dW, db = layer_backward(dH, memory, activation = 'relu')\n",
+        "print('dH_prev is \\n' , dH_prev)\n",
+        "print('dW is \\n' ,dW)\n",
+        "print('db is \\n', db)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "dH_prev is \n",
+            " [[5.6417525  0.66855959 6.86974666 5.46611139 4.92177244]\n",
+            " [2.17997451 0.12963116 2.74831239 2.17661196 2.10183901]]\n",
+            "dW is \n",
+            " [[1.67565336 1.56891359]\n",
+            " [1.39137819 1.4143854 ]\n",
+            " [1.3597389  1.43013369]]\n",
+            "db is \n",
+            " [[0.37345476]\n",
+            " [0.34414727]\n",
+            " [0.29074635]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "oLSt8JrXmf1J"
+      },
+      "source": [
+        "You should get:<br>\n",
+        "dH_prev is <br>\n",
+        " [[5.6417525  0.66855959 6.86974666 5.46611139 4.92177244]<br>\n",
+        " [2.17997451 0.12963116 2.74831239 2.17661196 2.10183901]]<br>\n",
+        "dW is <br>\n",
+        " [[1.67565336 1.56891359]<br>\n",
+        " [1.39137819 1.4143854 ]<br>\n",
+        " [1.3597389  1.43013369]]<br>\n",
+        "db is <br>\n",
+        " [[0.37345476]<br>\n",
+        " [0.34414727]<br>\n",
+        " [0.29074635]]<br>\n"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "SqAdA3q4mf1J"
+      },
+      "source": [
+        "### L_layer_backward\n",
+        "\n",
+        "**`L_layer_backward`** performs backpropagation for the whole network. Recall that the backpropagation for the last layer, i.e. the softmax layer, is different from the rest, hence it is outside the reversed `for` loop. You need to use the function **`layer_backward`** here in the loop with the activation function as **`relu`**. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "5W9GUwNnmf1J"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def L_layer_backward(HL, Y, memories):\n",
+        "    \n",
+        "    # Takes the predicted value HL and the true target value Y and the \n",
+        "    # memories calculated by L_layer_forward as input\n",
+        "    \n",
+        "    # returns the gradients calulated for all the layers as a dict\n",
+        "\n",
+        "    gradients = {}\n",
+        "    L = len(memories) # the number of layers\n",
+        "    m = HL.shape[1]\n",
+        "    Y = Y.reshape(HL.shape) # after this line, Y is the same shape as AL\n",
+        "    \n",
+        "    # Perform the backprop for the last layer that is the softmax layer\n",
+        "    current_memory = memories[-1]\n",
+        "    linear_memory, activation_memory = current_memory\n",
+        "    dZ = HL - Y\n",
+        "    H_prev, W, b = linear_memory\n",
+        "    # Use the expressions you have used in 'layer_backward'\n",
+        "    gradients[\"dH\" + str(L-1)] = np.dot(linear_memory[1].T, dZ)\n",
+        "    gradients[\"dW\" + str(L)] = (1. / m) * np.dot(dZ, H_prev.T)\n",
+        "    gradients[\"db\" + str(L)] = (1. / m) * np.sum(dZ, axis=1, keepdims=True)\n",
+        "    # Perform the backpropagation l-1 times\n",
+        "    for l in reversed(range(L-1)):\n",
+        "        # Lth layer gradients: \"gradients[\"dH\" + str(l + 1)] \", gradients[\"dW\" + str(l + 2)] , gradients[\"db\" + str(l + 2)]\n",
+        "        current_memory = memories[l]\n",
+        "        \n",
+        "        dH_prev_temp, dW_temp, db_temp = layer_backward(gradients[\"dH\" + str(l + 1)], current_memory, activation=\"relu\")\n",
+        "        gradients[\"dH\" + str(l)] = dH_prev_temp\n",
+        "        gradients[\"dW\" + str(l + 1)] = dW_temp\n",
+        "        gradients[\"db\" + str(l + 1)] = db_temp\n",
+        "\n",
+        "\n",
+        "    return gradients"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "4IiyyGRFmf1J",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "f15edfc6-11e0-4395-ebff-4ae6672796db"
+      },
+      "source": [
+        "# verify\n",
+        "# X is (784, 10)\n",
+        "# parameters is a dict\n",
+        "# HL should be (10, 10)\n",
+        "x_sample = train_set_x[:, 10:20]\n",
+        "y_sample = train_set_y[:, 10:20]\n",
+        "\n",
+        "HL, memories = L_layer_forward(x_sample, parameters=parameters)\n",
+        "gradients  = L_layer_backward(HL, y_sample, memories)\n",
+        "print('dW3 is \\n', gradients['dW3'])\n",
+        "print('db3 is \\n', gradients['db3'])\n",
+        "print('dW2 is \\n', gradients['dW2'])\n",
+        "print('db2 is \\n', gradients['db2'])"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "dW3 is \n",
+            " [[ 0.02003701  0.0019043   0.01011729  0.0145757   0.00146444  0.00059863\n",
+            "   0.        ]\n",
+            " [ 0.02154547  0.00203519  0.01085648  0.01567075  0.00156469  0.00060533\n",
+            "   0.        ]\n",
+            " [-0.01718407 -0.00273711 -0.00499101 -0.00912135 -0.00207365  0.00059996\n",
+            "   0.        ]\n",
+            " [-0.01141498 -0.00158622 -0.00607049 -0.00924709 -0.00119619  0.00060381\n",
+            "   0.        ]\n",
+            " [ 0.01943173  0.0018421   0.00984543  0.01416368  0.00141676  0.00059682\n",
+            "   0.        ]\n",
+            " [ 0.01045447  0.00063974  0.00637621  0.00863306  0.00050118  0.00060441\n",
+            "   0.        ]\n",
+            " [-0.06338911 -0.00747251 -0.0242169  -0.03835708 -0.00581131  0.0006034\n",
+            "   0.        ]\n",
+            " [ 0.01911373  0.001805    0.00703101  0.0120636   0.00138836 -0.00140535\n",
+            "   0.        ]\n",
+            " [-0.01801603  0.0017357  -0.01489228 -0.02026076  0.00133528  0.00060264\n",
+            "   0.        ]\n",
+            " [ 0.0194218   0.00183381  0.00594427  0.01187949  0.00141043 -0.00340965\n",
+            "   0.        ]]\n",
+            "db3 is \n",
+            " [[ 0.10031756]\n",
+            " [ 0.00460183]\n",
+            " [-0.00142942]\n",
+            " [-0.0997827 ]\n",
+            " [ 0.09872663]\n",
+            " [ 0.00536378]\n",
+            " [-0.10124784]\n",
+            " [-0.00191121]\n",
+            " [-0.00359044]\n",
+            " [-0.00104818]]\n",
+            "dW2 is \n",
+            " [[ 4.94428956e-05  1.13215514e-02  5.44180380e-02]\n",
+            " [-4.81267081e-05 -2.96999448e-05 -1.81899582e-02]\n",
+            " [ 5.63424333e-05  4.77190073e-03  4.04810232e-02]\n",
+            " [ 1.49767478e-04 -1.89780927e-03 -7.91231369e-03]\n",
+            " [ 1.97866094e-04  1.22107085e-04  2.64140566e-02]\n",
+            " [ 0.00000000e+00 -3.75805770e-04  1.63906102e-05]\n",
+            " [ 0.00000000e+00  0.00000000e+00  0.00000000e+00]]\n",
+            "db2 is \n",
+            " [[ 0.013979  ]\n",
+            " [-0.01329383]\n",
+            " [ 0.01275707]\n",
+            " [-0.01052957]\n",
+            " [ 0.03179224]\n",
+            " [-0.00039877]\n",
+            " [ 0.        ]]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "1WxTueK5mf1J"
+      },
+      "source": [
+        "You should get:<br>\n",
+        "\n",
+        "dW3 is <br>\n",
+        " [[ 0.02003701  0.0019043   0.01011729  0.0145757   0.00146444  0.00059863  0.        ]<br>\n",
+        " [ 0.02154547  0.00203519  0.01085648  0.01567075  0.00156469  0.00060533   0.        ]<br>\n",
+        " [-0.01718407 -0.00273711 -0.00499101 -0.00912135 -0.00207365  0.00059996   0.        ]<br>\n",
+        " [-0.01141498 -0.00158622 -0.00607049 -0.00924709 -0.00119619  0.00060381   0.        ]<br>\n",
+        " [ 0.01943173  0.0018421   0.00984543  0.01416368  0.00141676  0.00059682   0.        ]<br>\n",
+        " [ 0.01045447  0.00063974  0.00637621  0.00863306  0.00050118  0.00060441   0.        ]<br>\n",
+        " [-0.06338911 -0.00747251 -0.0242169  -0.03835708 -0.00581131  0.0006034   0.        ]<br>\n",
+        " [ 0.01911373  0.001805    0.00703101  0.0120636   0.00138836 -0.00140535   0.        ]<br>\n",
+        " [-0.01801603  0.0017357  -0.01489228 -0.02026076  0.00133528  0.00060264   0.        ]<br>\n",
+        " [ 0.0194218   0.00183381  0.00594427  0.01187949  0.00141043 -0.00340965    0.        ]]<br>\n",
+        "db3 is <br>\n",
+        " [[ 0.10031756]<br>\n",
+        " [ 0.00460183]<br>\n",
+        " [-0.00142942]<br>\n",
+        " [-0.0997827 ]<br>\n",
+        " [ 0.09872663]<br>\n",
+        " [ 0.00536378]<br>\n",
+        " [-0.10124784]<br>\n",
+        " [-0.00191121]<br>\n",
+        " [-0.00359044]<br>\n",
+        " [-0.00104818]]<br>\n",
+        "dW2 is <br>\n",
+        " [[ 4.94428956e-05  1.13215514e-02  5.44180380e-02]<br>\n",
+        " [-4.81267081e-05 -2.96999448e-05 -1.81899582e-02]<br>\n",
+        " [ 5.63424333e-05  4.77190073e-03  4.04810232e-02]<br>\n",
+        " [ 1.49767478e-04 -1.89780927e-03 -7.91231369e-03]<br>\n",
+        " [ 1.97866094e-04  1.22107085e-04  2.64140566e-02]<br>\n",
+        " [ 0.00000000e+00 -3.75805770e-04  1.63906102e-05]<br>\n",
+        " [ 0.00000000e+00  0.00000000e+00  0.00000000e+00]]<br>\n",
+        "db2 is <br>\n",
+        " [[ 0.013979  ]<br>\n",
+        " [-0.01329383]<br>\n",
+        " [ 0.01275707]<br>\n",
+        " [-0.01052957]<br>\n",
+        " [ 0.03179224]<br>\n",
+        " [-0.00039877]<br>\n",
+        " [ 0.        ]]<br>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "w9Hfsa1vmf1J"
+      },
+      "source": [
+        "# Parameter Updates\n",
+        "\n",
+        "Now that we have calculated the gradients. let's do the last step which is updating the weights and biases."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "FVX-UfeCmf1J"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def update_parameters(parameters, gradients, learning_rate):\n",
+        "\n",
+        "    # parameters is the python dictionary containing the parameters W and b for all the layers\n",
+        "    # gradients is the python dictionary containing your gradients, output of L_model_backward\n",
+        "    \n",
+        "    # returns updated weights after applying the gradient descent update\n",
+        "\n",
+        "    \n",
+        "    L = len(parameters) // 2 # number of layers in the neural network\n",
+        "\n",
+        "    for l in range(L):\n",
+        "        parameters[\"W\" + str(l+1)] = parameters[\"W\" + str(l+1)] - learning_rate * gradients[\"dW\" + str(l+1)]\n",
+        "        parameters[\"b\" + str(l+1)] = parameters[\"b\" + str(l+1)] - learning_rate * gradients[\"db\" + str(l+1)]\n",
+        "\n",
+        "        \n",
+        "    return parameters"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "6ehuaXXumf1J"
+      },
+      "source": [
+        "Having defined the bits and pieces of the feedforward and the backpropagation, let's now combine all that to form a model. The list `dimensions` has the number of neurons in each layer specified in it. For a neural network with 1 hidden layer with 45 neurons, you would specify the dimensions as follows:"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CUnOTAfXmf1K"
+      },
+      "source": [
+        "dimensions = [784, 45, 10] #  three-layer model"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "UGofrlk0mf1K"
+      },
+      "source": [
+        "# Model\n",
+        "\n",
+        "### L_layer_model\n",
+        "\n",
+        "This is a composite function which takes the training data as input **X**, ground truth label **Y**, the **dimensions** as stated above, **learning_rate**, the number of iterations **num_iterations** and if you want to print the loss, **print_loss**. You need to use the final functions we have written for feedforward, computing the loss, backpropagation and updating the parameters."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "7hii3RDzmf1K"
+      },
+      "source": [
+        "#Graded\n",
+        "\n",
+        "def L_layer_model(X, Y, dimensions, learning_rate = 0.0075, num_iterations = 3000, print_loss=False):\n",
+        "    \n",
+        "    # X and Y are the input training datasets\n",
+        "    # learning_rate, num_iterations are gradient descent optimization parameters\n",
+        "    # returns updated parameters\n",
+        "\n",
+        "    np.random.seed(2)\n",
+        "    losses = []                         # keep track of loss\n",
+        "    \n",
+        "    # Parameters initialization\n",
+        "    parameters = initialize_parameters(dimensions)\n",
+        " \n",
+        "    for i in range(0, num_iterations):\n",
+        "\n",
+        "        # Forward propagation\n",
+        "        HL, memories = L_layer_forward(X, parameters)\n",
+        "        \n",
+        "        # Compute loss\n",
+        "        loss = compute_loss(HL, Y)\n",
+        "    \n",
+        "        # Backward propagation\n",
+        "        gradients = L_layer_backward(HL, Y, memories)\n",
+        " \n",
+        "        # Update parameters.\n",
+        "        parameters = update_parameters(parameters, gradients, learning_rate)\n",
+        "                \n",
+        "        # Printing the loss every 100 training example\n",
+        "        if print_loss and i % 100 == 0:\n",
+        "            print (\"Loss after iteration %i: %f\" %(i, loss))\n",
+        "            losses.append(loss)\n",
+        "            \n",
+        "    # plotting the loss\n",
+        "    plt.plot(np.squeeze(losses))\n",
+        "    plt.ylabel('loss')\n",
+        "    plt.xlabel('iterations (per tens)')\n",
+        "    plt.title(\"Learning rate =\" + str(learning_rate))\n",
+        "    plt.show()\n",
+        "    \n",
+        "    return parameters"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "965lCR2smf1K"
+      },
+      "source": [
+        "Since, it'll take a lot of time to train the model on 50,000 data points, we take a subset of 5,000 images."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "RGD67w1Imf1K",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "30a71543-d5bd-4687-afd4-ca9d1556d920"
+      },
+      "source": [
+        "train_set_x_new = train_set_x[:,0:5000]\n",
+        "train_set_y_new = train_set_y[:,0:5000]\n",
+        "train_set_x_new.shape"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "(784, 5000)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 42
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "JX5m1-M5mf1K"
+      },
+      "source": [
+        "Now, let's call the function L_layer_model on the dataset we have created.This will take 10-20 mins to run."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "olOLPkmKmf1K",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 635
+        },
+        "outputId": "3be632ed-08b2-4956-c9e1-488ba137906e"
+      },
+      "source": [
+        "parameters = L_layer_model(train_set_x_new, train_set_y_new, dimensions, num_iterations = 2000, print_loss = True)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Loss after iteration 0: 2.422624\n",
+            "Loss after iteration 100: 2.129232\n",
+            "Loss after iteration 200: 1.876095\n",
+            "Loss after iteration 300: 1.604213\n",
+            "Loss after iteration 400: 1.350205\n",
+            "Loss after iteration 500: 1.144823\n",
+            "Loss after iteration 600: 0.990554\n",
+            "Loss after iteration 700: 0.876603\n",
+            "Loss after iteration 800: 0.791154\n",
+            "Loss after iteration 900: 0.725441\n",
+            "Loss after iteration 1000: 0.673485\n",
+            "Loss after iteration 1100: 0.631386\n",
+            "Loss after iteration 1200: 0.596598\n",
+            "Loss after iteration 1300: 0.567342\n",
+            "Loss after iteration 1400: 0.542346\n",
+            "Loss after iteration 1500: 0.520746\n",
+            "Loss after iteration 1600: 0.501865\n",
+            "Loss after iteration 1700: 0.485205\n",
+            "Loss after iteration 1800: 0.470368\n",
+            "Loss after iteration 1900: 0.457054\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "otwF_n0Tmf1K"
+      },
+      "source": [
+        "def predict(X, y, parameters):\n",
+        "    \n",
+        "    # Performs forward propogation using the trained parameters and calculates the accuracy\n",
+        "    \n",
+        "    m = X.shape[1]\n",
+        "    n = len(parameters) // 2 # number of layers in the neural network\n",
+        "    \n",
+        "    # Forward propagation\n",
+        "    probas, caches = L_layer_forward(X, parameters)\n",
+        "    \n",
+        "    p = np.argmax(probas, axis = 0)\n",
+        "    act = np.argmax(y, axis = 0)\n",
+        "\n",
+        "    print(\"Accuracy: \"  + str(np.sum((p == act)/m)))\n",
+        "        \n",
+        "    return p"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "391fzwcTmf1L"
+      },
+      "source": [
+        "Let's see the accuray we get on the training data."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "BovlstUUmf1L",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "4cfa5387-7034-4f77-b821-b4ba7669e9e9"
+      },
+      "source": [
+        "pred_train = predict(train_set_x_new, train_set_y_new, parameters)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Accuracy: 0.8774000000000002\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "uT4GJhIYmf1L"
+      },
+      "source": [
+        "We get ~ 88% accuracy on the training data. Let's see the accuray on the test data."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "pqkke8jkmf1L",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "outputId": "6b976c51-bd7e-4747-f9aa-47a7fa12ec3a"
+      },
+      "source": [
+        "pred_test = predict(test_set_x, test_set_y, parameters)"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Accuracy: 0.8674000000000002\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "d54B0NKNmf1L"
+      },
+      "source": [
+        "It is ~87%. You can train the model even longer and get better result. You can also try to change the network structure. \n",
+        "<br>Below, you can see which all numbers are incorrectly identified by the neural network by changing the index."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "OEEUcjCGmf1L",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 298
+        },
+        "outputId": "7256e9df-c56b-4173-f1ee-d583485a17e0"
+      },
+      "source": [
+        "index  = 3474\n",
+        "k = test_set_x[:,index]\n",
+        "k = k.reshape((28, 28))\n",
+        "plt.title('Label is {label}'.format(label=(pred_test[index], np.argmax(test_set_y, axis = 0)[index])))\n",
+        "plt.imshow(k, cmap='gray')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.image.AxesImage at 0x7fbdb3637f50>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 47
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": [],
+            "needs_background": "light"
+          }
+        }
+      ]
+    }
+  ]
+}
